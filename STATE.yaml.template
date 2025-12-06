@@ -1,0 +1,40 @@
+# STATE.yaml - Documentation tracking state
+version: 1
+created: {date}
+last_updated: {date}
+
+summary:
+  total_repos: N
+  pending: N
+  in_progress: N
+  complete: N
+  current_focus: repo-name
+
+repositories:
+  repo-name:
+    status: pending | in_progress | complete
+    current_step: 0-7
+    step_name: "Step name"
+
+    chunks_total: null | N
+    chunks_reviewed: 0
+    chunks_tasked: 0
+    chunks_complete: 0
+
+    current_chunk: null | CHUNK-ID
+    tracking_file: null | /path/to/CHUNK_TRACKING.md
+
+    started: null | date
+    completed: null | date
+
+    notes: |
+      Any relevant notes about this repo
+
+step_definitions:
+  1: "Chunk Repository"
+  2: "Review Chunks"
+  3: "Create Tasks"
+  4: "Generate Tasks YAML"
+  5: "Execute Tasks"
+  6: "Verify Results"
+  7: "Mark Complete"
