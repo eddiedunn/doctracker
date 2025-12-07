@@ -1,3 +1,8 @@
+# Override global .gitignore for .claude directory
+# This repo's slash commands should be tracked
+!.claude/
+!.claude/**
+
 # Doctrack state files (regeneratable)
 .doctrack/state.yaml
 .doctrack/repos/*.yaml
