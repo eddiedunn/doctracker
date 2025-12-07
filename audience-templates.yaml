@@ -1,0 +1,41 @@
+version: 1
+templates:
+  administrator:
+    name: Administrator
+    description: "Operations, deployment, configuration"
+    checklist:
+      - "Installation and setup documented"
+      - "Configuration options explained"
+      - "Operational procedures (backup, restore, upgrade)"
+      - "Troubleshooting guides"
+      - "CLI/TUI usage with examples"
+      - "Security (RBAC, secrets) explained"
+
+  application_developer:
+    name: Application Developer
+    description: "Integration, APIs, consuming the system"
+    checklist:
+      - "Integration points documented"
+      - "API reference complete"
+      - "Configuration format with schema"
+      - "Error messages and handling explained"
+      - "Working examples provided"
+
+  platform_developer:
+    name: Platform Developer
+    description: "Contributing, extending, building on"
+    checklist:
+      - "Architecture documented"
+      - "All public APIs have docstrings"
+      - "Extension points explained"
+      - "Development setup guide"
+      - "Contributing guidelines"
+
+  end_user:
+    name: End User
+    description: "Non-technical users of the system"
+    checklist:
+      - "Getting started guide"
+      - "Feature walkthroughs"
+      - "FAQ"
+      - "UI/UX documentation"

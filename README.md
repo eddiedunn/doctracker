@@ -1,63 +1,89 @@
 # doctrack
 
-Track documentation work across multi-repository ecosystems.
+A stateless tool for creating documentation from source code across multi-repository ecosystems.
 
-## What It Does
+## What It Is
 
-- Inventories source code across multiple repos
-- Identifies documentation needs (not audits - creates from source)
-- Creates actionable tasks
-- Tracks progress
-- Generates automation-ready task files
+Doctrack operates on target projects without maintaining its own state files. It reads configuration, analyzes source code, and generates documentation tasks that can be executed with automation tools like grind.
 
-## Core Principle
-
-**Source code is truth.**
-
-This is NOT a documentation audit system. We don't compare against
-existing docs. We read source code, understand what it does, and
-create documentation from that understanding.
-
-Existing docs may be wrong, outdated, or misleading. We ignore them.
+**Key principle:** Source code is truth. We don't audit existing documentation - we read source code and create documentation from what the code actually does.
 
 ## Quick Start
 
-1. Create doctrack.yaml (see example)
-2. Run /init
-3. Run /status to see repos
-4. Run /continue to get next action
-5. Follow the 7-step process per repo
+### Single Repository Mode
 
-## The 7-Step Process
+For working within a single repository or when all repos share a parent directory:
 
-For each repository:
+```bash
+# Initialize with interactive interview
+/dt-init /path/to/my-project
 
-1. `/chunk {repo}` - Inventory source, create chunk list
-2. `/review {chunk}` - Read source, identify doc needs
-3. `/task {chunk}` - Create documentation tasks
-4. `/generate {repo}` - Compile into tasks.yaml
-5. `grind batch {repo}-tasks.yaml` - Execute tasks
-6. Human review
-7. `/complete {chunk}` - Verify and mark done
+# Check status and start documenting
+/dt-status
+/dt-chunk my-repo
+```
+
+See [docs/getting-started.md](docs/getting-started.md) for the full tutorial.
+
+### Hub Mode
+
+For managing documentation across multiple distributed repositories:
+
+```bash
+# Initialize hub with interactive interview
+/dt-init /path/to/doctrack-hub
+
+# Work through repositories
+/dt-chunk <repo-name>
+/dt-review <chunk-id>
+/dt-task <chunk-id>
+/dt-generate <repo-name>
+
+# Collate and build final output
+/dt-collate
+/dt-build
+```
+
+See [docs/getting-started.md](docs/getting-started.md) for the full tutorial.
 
 ## Commands
 
 | Command | Purpose |
 |---------|---------|
-| /init | Initialize from doctrack.yaml |
-| /status | Show progress dashboard |
-| /continue | Get next action |
-| /chunk {repo} | Inventory source files |
-| /review {chunk} | Review chunk, identify needs |
-| /task {chunk} | Create documentation tasks |
-| /generate {repo} | Generate tasks.yaml |
-| /complete {chunk} | Mark chunk complete |
+| `/dt-init` | Initialize session with interactive interview |
+| `/dt-status` | Show progress dashboard |
+| `/dt-sessions` | List and manage sessions |
+| `/dt-use <path>` | Switch to different session |
+| `/dt-chunk <repo>` | Inventory source files |
+| `/dt-review <chunk>` | Review chunk, identify doc needs |
+| `/dt-task <chunk>` | Create documentation tasks |
+| `/dt-generate <repo>` | Generate tasks.yaml for grind |
+| `/dt-complete <chunk>` | Mark chunk complete |
+| `/dt-collate` | Gather docs from repos (hub mode) |
+| `/dt-build` | Build final documentation (hub mode) |
+
+## Core Principles
+
+1. **Source code is truth** - Documentation is created from reading and understanding source code
+2. **Not an audit system** - We don't compare against existing docs
+3. **Stateless operation** - Operates on target projects without internal state
+4. **Automation-ready** - Generates grind-compatible task files
+5. **Systematic process** - 7-step workflow per repository
+
+## Documentation
+
+- [PROCESS.md](PROCESS.md) - Complete process documentation
+- [docs/getting-started.md](docs/getting-started.md) - Getting started tutorial
+- `docs/` - Additional guides and examples
 
 ## Configuration
 
-See doctrack.yaml.example for configuration options.
+Configuration is created through the `/dt-init` interactive interview which guides you through:
+- Repository definitions
+- Audience checklists
+- Documentation standards
+- Hub mode settings
 
 ## State Tracking
 
-Progress is tracked in STATE.yaml. This file can be committed
-to git to preserve progress across sessions.
+Progress is tracked in `.doctrack/state.yaml` within your project directory. This file can be committed to git to preserve progress across sessions.

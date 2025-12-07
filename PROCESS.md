@@ -3,6 +3,12 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Operational Modes](#operational-modes)
+  - [Single Mode](#single-mode)
+  - [Hub Mode](#hub-mode)
+- [Session Management](#session-management)
+  - [XDG State Directory](#xdg-state-directory)
+  - [Session Commands](#session-commands)
 - [Core Principles](#core-principles)
 - [The 7-Step Process](#the-7-step-process)
   - [Step 0: Initialization](#step-0-initialization)
@@ -13,6 +19,9 @@
   - [Step 5: Execute Tasks](#step-5-execute-tasks)
   - [Step 6: Human Review](#step-6-human-review)
   - [Step 7: Mark Complete](#step-7-mark-complete)
+- [Hub Mode Workflow](#hub-mode-workflow)
+  - [Collating Documentation](#collating-documentation)
+  - [Building Final Output](#building-final-output)
 - [File Locations](#file-locations)
 - [State Transitions](#state-transitions)
 - [Audience Checklist Usage](#audience-checklist-usage)
@@ -29,8 +38,127 @@ Doctrack is a systematic approach to creating documentation across multi-reposit
 - You work repository-by-repository
 - Each repository is broken into manageable "chunks"
 - Each chunk follows the same 7-step process
-- Progress is tracked in STATE.yaml
+- Progress is tracked in `.doctrack/state.yaml`
 - Tasks are automation-ready (grind-compatible)
+
+---
+
+## Operational Modes
+
+Doctrack v2 supports two operational modes to accommodate different project structures.
+
+### Single Mode
+
+**Single mode** is designed for working within a single repository or when all repositories are in the same parent directory.
+
+**Characteristics:**
+- `.doctrack/` directory is created in the working directory
+- Session configuration in `.doctrack/session.yaml`
+- State tracked in `.doctrack/state.yaml`
+- All repositories referenced with relative or absolute paths
+- Ideal for: Single repo projects, monorepos, or co-located multi-repos
+
+**Directory structure:**
+```
+my-project/
+├── .doctrack/
+│   ├── session.yaml          # Session configuration
+│   ├── state.yaml            # Progress tracking
+│   └── {repo}-tasks.yaml     # Generated grind tasks
+├── src/                      # Source code
+└── docs/
+    └── .doctrack/            # Per-repo doctrack files
+        └── chunks/
+```
+
+### Hub Mode
+
+**Hub mode** is designed for managing documentation across multiple distributed repositories from a central location.
+
+**Characteristics:**
+- Central `.doctrack/` hub manages multiple remote repositories
+- Each repo maintains its own `docs/.doctrack/` working files
+- Use `/dt-collate` to gather completed documentation from repos
+- Use `/dt-build` to compile final documentation output
+- Ideal for: Multi-repo ecosystems, microservices, distributed teams
+
+**Directory structure:**
+```
+doctrack-hub/                  # Central hub directory
+├── .doctrack/
+│   ├── session.yaml          # Hub session configuration
+│   ├── state.yaml            # Overall progress tracking
+│   ├── collated/             # Gathered documentation
+│   └── output/               # Built documentation
+│
+repos/                         # Distributed repositories
+├── repo-a/
+│   └── docs/.doctrack/       # Repo-specific doctrack files
+├── repo-b/
+│   └── docs/.doctrack/
+└── repo-c/
+    └── docs/.doctrack/
+```
+
+---
+
+## Session Management
+
+Doctrack v2 uses a session-based model for tracking work across multiple Claude conversations.
+
+### XDG State Directory
+
+Session state is persisted following XDG Base Directory specification:
+- **Location:** `$XDG_STATE_HOME/doctrack/` (defaults to `~/.local/state/doctrack/`)
+- **Purpose:** Track active sessions, recent sessions, and session metadata
+- **Contents:**
+  - `active_session` - Path to current active session
+  - `sessions/` - Directory of session metadata
+
+### Session Commands
+
+**`/dt-sessions`** - List and manage documentation sessions
+
+```bash
+/dt-sessions
+# Lists all known sessions with their status:
+# - Session name/path
+# - Last accessed date
+# - Progress summary (repos complete/total)
+# - Active indicator
+
+/dt-sessions --active
+# Shows details of the currently active session
+```
+
+**`/dt-use {session-path}`** - Switch to a different session
+
+```bash
+/dt-use /path/to/project/.doctrack
+# Switches active session to the specified path
+# Loads session.yaml and state.yaml from that location
+
+/dt-use my-project
+# Can use session name if previously registered
+```
+
+**Session workflow:**
+```bash
+# Start a new session
+cd /path/to/my-project
+/dt-init
+# Creates .doctrack/session.yaml and registers session
+
+# Later, in a new Claude conversation
+/dt-sessions
+# See available sessions
+
+/dt-use /path/to/my-project/.doctrack
+# Resume working on that project
+
+/dt-status
+# See where you left off
+```
 
 ---
 
@@ -79,19 +207,19 @@ Assume nothing about existing documentation:
 
 ## The 7-Step Process
 
-For each repository in your doctrack.yaml, you will follow these seven steps. The process is repeated for each repository until all are complete.
+For each repository in your session.yaml, you will follow these seven steps. The process is repeated for each repository until all are complete.
 
 ---
 
 ### Step 0: Initialization
 
-**Command:** `/init`
+**Command:** `/dt-init`
 
 **Purpose:** Set up the doctrack system by reading configuration and creating initial state.
 
 #### Prerequisites
 
-1. Create `doctrack.yaml` in your working directory (see `doctrack.yaml.example`)
+1. Run `/dt-init` to interactively create `session.yaml` in your `.doctrack/` directory
 2. Define:
    - Repositories to track (name, path, content type, priority)
    - Audiences (admin, developer, end-user, etc.)
@@ -99,18 +227,18 @@ For each repository in your doctrack.yaml, you will follow these seven steps. Th
 
 #### What This Step Does
 
-1. Reads `doctrack.yaml` configuration
+1. Reads `.doctrack/session.yaml` configuration
 2. Validates all repository paths exist
-3. Creates `STATE.yaml` with all repositories in "pending" status
+3. Creates `.doctrack/state.yaml` with all repositories in "pending" status
 4. Reports readiness
 
 #### Input
 
-- `doctrack.yaml` (configuration file)
+- `.doctrack/session.yaml` (configuration file)
 
 #### Output
 
-- `STATE.yaml` (state tracking file)
+- `.doctrack/state.yaml` (state tracking file)
 - Terminal report showing all repositories and their status
 
 #### State Transitions
@@ -122,13 +250,13 @@ No state → All repos: "pending" (step 0)
 #### Success Criteria
 
 - All repository paths validated
-- STATE.yaml created with correct structure
+- `.doctrack/state.yaml` created with correct structure
 - All repositories marked as "pending"
 
 #### Files Created
 
 ```
-STATE.yaml
+.doctrack/state.yaml
 ```
 
 #### Example Output
@@ -146,42 +274,42 @@ core-api            /path/to/core-api             OK
 automation          /path/to/automation           OK
 config-schemas      /path/to/schemas              OK
 
-State file: STATE.yaml
+State file: .doctrack/state.yaml
 
-Next: /status or /chunk {repo-name}
+Next: /dt-status or /dt-chunk {repo-name}
 ```
 
 ---
 
 ### Step 1: Chunk Repository
 
-**Command:** `/chunk {repo-name}`
+**Command:** `/dt-chunk {repo-name}`
 
 **Purpose:** Inventory all source files and create a logical chunk list for systematic review.
 
 #### What This Step Does
 
-1. Reads STATE.yaml to verify repository hasn't been chunked
-2. Reads doctrack.yaml to get repository configuration
+1. Reads `.doctrack/state.yaml` to verify repository hasn't been chunked
+2. Reads `.doctrack/session.yaml` to get repository configuration
 3. Scans all source files in configured directories
 4. Groups files into logical chunks (max ~10 files per chunk)
 5. Creates CHUNK_TRACKING.md in the repository
-6. Updates STATE.yaml
+6. Updates `.doctrack/state.yaml`
 
 #### Input
 
-- `doctrack.yaml` (repository configuration)
-- `STATE.yaml` (current state)
+- `.doctrack/session.yaml` (repository configuration)
+- `.doctrack/state.yaml` (current state)
 - Source files in repository
 
 #### Output
 
-- `{repo}/docs/_doctrack/CHUNK_TRACKING.md` (chunk inventory)
-- Updated `STATE.yaml`
+- `{repo}/docs/.doctrack/CHUNK_TRACKING.md` (chunk inventory)
+- Updated `.doctrack/state.yaml`
 
 #### File Scanning Strategy
 
-Based on `content_type` in doctrack.yaml:
+Based on `content_type` in session.yaml:
 
 | Content Type | Files Scanned | Pattern |
 |-------------|---------------|---------|
@@ -265,12 +393,12 @@ Developer:
 #### State Transitions
 
 ```
-STATE.yaml updates:
+.doctrack/state.yaml updates:
   repositories.{repo-name}.status: "pending" → "in_progress"
   repositories.{repo-name}.current_step: 0 → 1
   repositories.{repo-name}.step_name: null → "Chunk Repository"
   repositories.{repo-name}.chunks_total: null → N
-  repositories.{repo-name}.tracking_file: null → "{path}/CHUNK_TRACKING.md"
+  repositories.{repo-name}.tracking_file: null → "{path}/docs/.doctrack/CHUNK_TRACKING.md"
   repositories.{repo-name}.started: null → {timestamp}
 ```
 
@@ -279,7 +407,7 @@ STATE.yaml updates:
 - All source directories scanned
 - Files grouped into logical chunks
 - CHUNK_TRACKING.md created with all required sections
-- STATE.yaml updated with chunk count
+- `.doctrack/state.yaml` updated with chunk count
 - Chunk IDs follow naming convention
 
 #### What NOT to Do
@@ -287,19 +415,19 @@ STATE.yaml updates:
 - ❌ Don't skip any source directories
 - ❌ Don't create chunks larger than ~10 files
 - ❌ Don't read or consider existing documentation quality
-- ❌ Don't forget to update STATE.yaml
+- ❌ Don't forget to update `.doctrack/state.yaml`
 
 #### Next Step
 
 After chunking, you have two options:
-1. Run `/review {chunk-id}` to start reviewing the first chunk
-2. Run `/status` to see the full repository status
+1. Run `/dt-review {chunk-id}` to start reviewing the first chunk
+2. Run `/dt-status` to see the full repository status
 
 ---
 
 ### Step 2: Review Chunks
 
-**Command:** `/review {chunk-id}`
+**Command:** `/dt-review {chunk-id}`
 
 **Purpose:** Read source code for a chunk and identify documentation needs.
 
@@ -316,15 +444,15 @@ After chunking, you have two options:
 
 #### Input
 
-- `{repo}/docs/_doctrack/CHUNK_TRACKING.md` (chunk metadata)
+- `{repo}/docs/.doctrack/CHUNK_TRACKING.md` (chunk metadata)
 - Source files listed in the chunk
-- `doctrack.yaml` (audience checklists, standards)
-- `STATE.yaml` (current state)
+- `.doctrack/session.yaml` (audience checklists, standards)
+- `.doctrack/state.yaml` (current state)
 
 #### Output
 
 - Review results displayed in terminal (NOT saved to file yet)
-- Updated `STATE.yaml`
+- Updated `.doctrack/state.yaml`
 
 #### Source Code Analysis
 
@@ -350,7 +478,7 @@ For each file in the chunk, identify:
 
 #### Audience Checklist Application
 
-Apply the checklist from doctrack.yaml for each audience:
+Apply the checklist from session.yaml for each audience:
 
 **Example for Admin audience:**
 - [ ] Operational procedures documented
@@ -423,13 +551,13 @@ layer to verify credentials and uses JWT for session management."
 
 ### Next Steps
 
-Use `/task {chunk-id}` to create documentation tasks.
+Use `/dt-task {chunk-id}` to create documentation tasks.
 ```
 
 #### State Transitions
 
 ```
-STATE.yaml updates:
+.doctrack/state.yaml updates:
   repositories.{repo-name}.chunks_reviewed: N → N+1
   repositories.{repo-name}.current_chunk: null → {chunk-id}
   repositories.{repo-name}.current_step: 1 → 2
@@ -454,35 +582,35 @@ STATE.yaml updates:
 
 #### Next Step
 
-After reviewing, run `/task {chunk-id}` to create actionable documentation tasks.
+After reviewing, run `/dt-task {chunk-id}` to create actionable documentation tasks.
 
 ---
 
 ### Step 3: Create Tasks
 
-**Command:** `/task {chunk-id}`
+**Command:** `/dt-task {chunk-id}`
 
 **Purpose:** Transform review findings into detailed, actionable documentation tasks.
 
 #### What This Step Does
 
-1. Reviews the findings from `/review` (in conversation context)
+1. Reviews the findings from `/dt-review` (in conversation context)
 2. Creates specific, actionable tasks for each documentation need
 3. Includes verification steps for each task
 4. Generates grind-compatible YAML
 5. Saves task file to repository
-6. Updates STATE.yaml
+6. Updates `.doctrack/state.yaml`
 
 #### Input
 
-- Review results from Step 2 (in conversation context or re-run `/review`)
-- `doctrack.yaml` (standards configuration)
-- `STATE.yaml` (current state)
+- Review results from Step 2 (in conversation context or re-run `/dt-review`)
+- `.doctrack/session.yaml` (standards configuration)
+- `.doctrack/state.yaml` (current state)
 
 #### Output
 
-- `{repo}/docs/_doctrack/chunks/{chunk-id}-task.md` (task file)
-- Updated `STATE.yaml`
+- `{repo}/docs/.doctrack/chunks/{chunk-id}-task.md` (task file)
+- Updated `.doctrack/state.yaml`
 
 #### Task Creation Strategy
 
@@ -656,7 +784,7 @@ This ensures the agent writing documentation:
 #### State Transitions
 
 ```
-STATE.yaml updates:
+.doctrack/state.yaml updates:
   repositories.{repo-name}.chunks_tasked: N → N+1
   repositories.{repo-name}.current_step: 2 → 3
   repositories.{repo-name}.step_name: "Review Chunks" → "Create Tasks"
@@ -667,9 +795,9 @@ STATE.yaml updates:
 - Task file created with all sections
 - Each task has clear what/where/format/verify
 - Grind YAML is valid and complete
-- Standards from doctrack.yaml applied
+- Standards from session.yaml applied
 - Audience requirements covered
-- STATE.yaml updated
+- `.doctrack/state.yaml` updated
 
 #### What NOT to Do
 
@@ -680,36 +808,36 @@ STATE.yaml updates:
 
 #### Next Step
 
-After creating tasks for all chunks, run `/generate {repo-name}` to compile into a single tasks.yaml file.
+After creating tasks for all chunks, run `/dt-generate {repo-name}` to compile into a single tasks.yaml file.
 
 ---
 
 ### Step 4: Generate Tasks YAML
 
-**Command:** `/generate {repo-name}`
+**Command:** `/dt-generate {repo-name}`
 
 **Purpose:** Compile all chunk task files into a single grind-ready YAML file.
 
 #### What This Step Does
 
-1. Reads doctrack.yaml for repository path
-2. Finds all `*-task.md` files in `{repo}/docs/_doctrack/chunks/`
+1. Reads `.doctrack/session.yaml` for repository path
+2. Finds all `*-task.md` files in `{repo}/docs/.doctrack/chunks/`
 3. Extracts grind YAML blocks from each task file
 4. Combines into single tasks.yaml file
 5. Orders by dependencies (if specified)
-6. Saves to `{repo-name}-tasks.yaml` in current directory
-7. Updates STATE.yaml
+6. Saves to `.doctrack/{repo-name}-tasks.yaml`
+7. Updates `.doctrack/state.yaml`
 
 #### Input
 
-- `doctrack.yaml` (repository configuration)
-- `{repo}/docs/_doctrack/chunks/*-task.md` (all task files)
-- `STATE.yaml` (current state)
+- `.doctrack/session.yaml` (repository configuration)
+- `{repo}/docs/.doctrack/chunks/*-task.md` (all task files)
+- `.doctrack/state.yaml` (current state)
 
 #### Output
 
-- `{repo-name}-tasks.yaml` (compiled tasks file)
-- Updated `STATE.yaml`
+- `.doctrack/{repo-name}-tasks.yaml` (compiled tasks file)
+- Updated `.doctrack/state.yaml`
 
 #### Generated File Structure
 
@@ -755,7 +883,7 @@ tasks:
 #### State Transitions
 
 ```
-STATE.yaml updates:
+.doctrack/state.yaml updates:
   repositories.{repo-name}.current_step: 3 → 4
   repositories.{repo-name}.step_name: "Create Tasks" → "Generate Tasks YAML"
   repositories.{repo-name}.status: "in_progress" → "ready"
@@ -766,8 +894,8 @@ STATE.yaml updates:
 - All task files found and processed
 - YAML is valid and grind-compatible
 - All tasks included with correct IDs
-- Output file created in current directory
-- STATE.yaml updated
+- Output file created in `.doctrack/` directory
+- `.doctrack/state.yaml` updated
 
 #### Output Message
 
@@ -777,20 +905,20 @@ TASKS COMPILED
 
 Repository: core-api
 Task files found: 12
-Output: core-api-tasks.yaml
+Output: .doctrack/core-api-tasks.yaml
 
-Next: grind batch core-api-tasks.yaml
+Next: grind batch .doctrack/core-api-tasks.yaml
 ```
 
 #### Next Step
 
-Execute the tasks using grind: `grind batch {repo-name}-tasks.yaml`
+Execute the tasks using grind: `grind batch .doctrack/{repo-name}-tasks.yaml`
 
 ---
 
 ### Step 5: Execute Tasks
 
-**Command:** `grind batch {repo-name}-tasks.yaml`
+**Command:** `grind batch .doctrack/{repo-name}-tasks.yaml`
 
 **Purpose:** Execute documentation tasks using automation (grind).
 
@@ -809,9 +937,9 @@ Execute the tasks using grind: `grind batch {repo-name}-tasks.yaml`
 
 #### Input
 
-- `{repo-name}-tasks.yaml` (compiled tasks)
+- `.doctrack/{repo-name}-tasks.yaml` (compiled tasks)
 - Source code files
-- `doctrack.yaml` (for standards reference)
+- `.doctrack/session.yaml` (for standards reference)
 
 #### Output
 
@@ -824,12 +952,12 @@ Execute the tasks using grind: `grind batch {repo-name}-tasks.yaml`
 
 **Sequential execution:**
 ```bash
-grind batch core-api-tasks.yaml
+grind batch .doctrack/core-api-tasks.yaml
 ```
 
 **Parallel execution:**
 ```bash
-grind dag core-api-tasks.yaml --parallel 2
+grind dag .doctrack/core-api-tasks.yaml --parallel 2
 ```
 
 #### What Grind Does Per Task
@@ -874,12 +1002,12 @@ This ensures grind:
 #### State Transitions
 
 ```
-STATE.yaml updates:
+.doctrack/state.yaml updates:
   repositories.{repo-name}.current_step: 4 → 5
   repositories.{repo-name}.step_name: "Generate Tasks YAML" → "Execute Tasks"
 ```
 
-**Note:** This state transition should be done manually or by running `/status` after grind completes.
+**Note:** This state transition should be done manually or by running `/dt-status` after grind completes.
 
 #### Success Criteria
 
@@ -1041,13 +1169,13 @@ No automatic state transitions. Human reviewer decides when to proceed to Step 7
 
 #### Next Step
 
-When review is complete and approved, run `/complete {chunk-id}` to mark chunk as complete.
+When review is complete and approved, run `/dt-complete {chunk-id}` to mark chunk as complete.
 
 ---
 
 ### Step 7: Mark Complete
 
-**Command:** `/complete {chunk-id}`
+**Command:** `/dt-complete {chunk-id}`
 
 **Purpose:** Verify documentation was created correctly and mark chunk complete.
 
@@ -1058,20 +1186,20 @@ When review is complete and approved, run `/complete {chunk-id}` to mark chunk a
 3. Runs quality checks
 4. Marks status as COMPLETE, PARTIAL, or BLOCKED
 5. Updates CHUNK_TRACKING.md with results
-6. Updates STATE.yaml
+6. Updates `.doctrack/state.yaml`
 
 #### Input
 
-- `{repo}/docs/_doctrack/chunks/{chunk-id}-task.md` (original task file)
+- `{repo}/docs/.doctrack/chunks/{chunk-id}-task.md` (original task file)
 - Generated documentation files
 - Source files with docstrings
-- `STATE.yaml` (current state)
+- `.doctrack/state.yaml` (current state)
 
 #### Output
 
 - Completion report (displayed)
 - Updated `CHUNK_TRACKING.md`
-- Updated `STATE.yaml`
+- Updated `.doctrack/state.yaml`
 
 #### Verification Process
 
@@ -1167,7 +1295,7 @@ Chunk is ready to close. Proceed to next chunk: API-USERS-002
 #### State Transitions
 
 ```
-STATE.yaml updates:
+.doctrack/state.yaml updates:
   repositories.{repo-name}.chunks_complete: N → N+1
   repositories.{repo-name}.current_step: 6 → 7
   repositories.{repo-name}.step_name: "Human Review" → "Mark Complete"
@@ -1179,7 +1307,7 @@ CHUNK_TRACKING.md updates:
 
 **If all chunks complete:**
 ```
-STATE.yaml updates:
+.doctrack/state.yaml updates:
   repositories.{repo-name}.status: "in_progress" → "complete"
   repositories.{repo-name}.completed: {timestamp}
   summary.complete: N → N+1
@@ -1191,7 +1319,7 @@ STATE.yaml updates:
 - All tasks verified
 - Quality checks pass
 - Chunk status updated
-- STATE.yaml reflects progress
+- `.doctrack/state.yaml` reflects progress
 
 #### What NOT to Do
 
@@ -1202,15 +1330,158 @@ STATE.yaml updates:
 #### Next Steps
 
 **If more chunks remain:**
-- Run `/review {next-chunk-id}` to continue
+- Run `/dt-review {next-chunk-id}` to continue
 
 **If all chunks complete:**
-- Run `/status` to see overall progress
-- Move to next repository: `/chunk {next-repo-name}`
+- Run `/dt-status` to see overall progress
+- Move to next repository: `/dt-chunk {next-repo-name}`
 
 **If all repositories complete:**
 - Documentation work finished!
-- Review STATE.yaml for final summary
+- Review `.doctrack/state.yaml` for final summary
+
+---
+
+## Hub Mode Workflow
+
+Hub mode provides additional commands for managing documentation across distributed repositories.
+
+### Collating Documentation
+
+**Command:** `/dt-collate`
+
+**Purpose:** Gather completed documentation from all repositories into the central hub.
+
+#### What This Step Does
+
+1. Reads `.doctrack/session.yaml` to get repository list
+2. For each repository with completed chunks:
+   - Copies generated guides from `{repo}/docs/guides/`
+   - Copies generated examples from `{repo}/docs/examples/`
+   - Copies diagrams from `{repo}/docs/diagrams/`
+3. Organizes files in `.doctrack/collated/` by repository
+4. Updates manifest with collation metadata
+5. Reports collation summary
+
+#### Input
+
+- `.doctrack/session.yaml` (repository list)
+- `.doctrack/state.yaml` (completion status)
+- Generated documentation in each repository
+
+#### Output
+
+- `.doctrack/collated/{repo}/` directories with gathered docs
+- `.doctrack/collated/manifest.yaml` with metadata
+
+#### Example Usage
+
+```bash
+# After completing documentation for multiple repos
+/dt-collate
+# → Gathers docs from: core-api, automation, config-schemas
+# → Creates .doctrack/collated/ structure
+# → Reports: 45 guides, 32 examples, 12 diagrams collected
+```
+
+#### Collated Structure
+
+```
+.doctrack/collated/
+├── manifest.yaml              # Collation metadata
+├── core-api/
+│   ├── guides/
+│   │   ├── authentication.md
+│   │   └── user-management.md
+│   └── examples/
+│       └── authentication.md
+├── automation/
+│   └── guides/
+│       └── deployment.md
+└── config-schemas/
+    └── guides/
+        └── schema-reference.md
+```
+
+### Building Final Output
+
+**Command:** `/dt-build`
+
+**Purpose:** Compile collated documentation into final output format.
+
+#### What This Step Does
+
+1. Reads `.doctrack/collated/manifest.yaml`
+2. Applies output configuration from session.yaml
+3. Generates:
+   - Combined table of contents
+   - Cross-repository index
+   - Unified navigation structure
+4. Outputs to `.doctrack/output/`
+5. Optionally generates static site (if configured)
+
+#### Input
+
+- `.doctrack/collated/` (gathered documentation)
+- `.doctrack/session.yaml` (output configuration)
+
+#### Output
+
+- `.doctrack/output/` (final documentation)
+- Index files and navigation
+
+#### Build Configuration
+
+In `.doctrack/session.yaml`:
+
+```yaml
+build:
+  output_format: mkdocs    # mkdocs | sphinx | hugo | plain
+  output_dir: .doctrack/output
+  title: "My Project Documentation"
+  nav_structure: auto      # auto | manual
+  cross_references: true   # Enable cross-repo links
+```
+
+#### Example Usage
+
+```bash
+# After collating documentation
+/dt-build
+# → Reads collated documentation
+# → Generates unified structure
+# → Creates .doctrack/output/ with final docs
+# → Reports: Documentation built successfully
+
+# Preview the result (if mkdocs)
+cd .doctrack/output && mkdocs serve
+```
+
+#### Hub Mode Complete Workflow
+
+```bash
+# 1. Initialize hub session
+/dt-init --hub
+# → Creates hub session with multi-repo configuration
+
+# 2. Work through each repository
+/dt-chunk core-api
+/dt-review API-AUTH-001
+/dt-task API-AUTH-001
+# ... complete all chunks for all repos
+
+# 3. Collate completed documentation
+/dt-collate
+# → Gathers docs from all completed repos
+
+# 4. Build final output
+/dt-build
+# → Creates unified documentation site
+
+# 5. Verify and publish
+/dt-status
+# → Shows hub completion status
+```
 
 ---
 
@@ -1220,22 +1491,22 @@ STATE.yaml updates:
 
 | File | Location | Purpose |
 |------|----------|---------|
-| doctrack.yaml | Working directory | Project configuration |
-| STATE.yaml | Working directory | Progress tracking |
+| session.yaml | .doctrack/ | Project/session configuration |
+| state.yaml | .doctrack/ | Progress tracking |
 | config.schema.json | doctrack/ | Config validation schema |
 
 ### Repository Files
 
 | File | Location | Purpose |
 |------|----------|---------|
-| CHUNK_TRACKING.md | {repo}/docs/_doctrack/ | Chunk inventory |
-| {chunk-id}-task.md | {repo}/docs/_doctrack/chunks/ | Task specifications |
+| CHUNK_TRACKING.md | {repo}/docs/.doctrack/ | Chunk inventory |
+| {chunk-id}-task.md | {repo}/docs/.doctrack/chunks/ | Task specifications |
 
 ### Generated Files
 
 | File | Location | Purpose |
 |------|----------|---------|
-| {repo}-tasks.yaml | Working directory | Grind task file |
+| {repo}-tasks.yaml | .doctrack/ | Grind task file |
 
 ### Documentation Output
 
@@ -1250,9 +1521,10 @@ STATE.yaml updates:
 
 ```
 project/
-├── doctrack.yaml              # Configuration
-├── STATE.yaml                 # Progress tracking
-├── core-api-tasks.yaml        # Generated tasks (grind)
+├── .doctrack/                     # Doctrack configuration and state
+│   ├── session.yaml               # Session configuration
+│   ├── state.yaml                 # Progress tracking
+│   └── core-api-tasks.yaml        # Generated tasks (grind)
 │
 └── repos/
     └── core-api/
@@ -1263,7 +1535,7 @@ project/
         │       └── token.py
         │
         └── docs/
-            ├── _doctrack/           # Doctrack working files
+            ├── .doctrack/           # Doctrack working files
             │   ├── CHUNK_TRACKING.md
             │   └── chunks/
             │       ├── API-AUTH-001-task.md
@@ -1313,9 +1585,9 @@ Step 7: Mark Complete (per chunk)
 Repository complete
 ```
 
-### STATE.yaml Field Transitions
+### state.yaml Field Transitions
 
-**Initial state (after /init):**
+**Initial state (after /dt-init):**
 ```yaml
 repositories:
   core-api:
@@ -1332,7 +1604,7 @@ repositories:
     completed: null
 ```
 
-**After /chunk:**
+**After /dt-chunk:**
 ```yaml
 repositories:
   core-api:
@@ -1344,12 +1616,12 @@ repositories:
     chunks_tasked: 0
     chunks_complete: 0
     current_chunk: null
-    tracking_file: "/path/to/core-api/docs/_doctrack/CHUNK_TRACKING.md"
+    tracking_file: "/path/to/core-api/docs/.doctrack/CHUNK_TRACKING.md"
     started: "2025-12-06"
     completed: null
 ```
 
-**After /review (first chunk):**
+**After /dt-review (first chunk):**
 ```yaml
 repositories:
   core-api:
@@ -1361,12 +1633,12 @@ repositories:
     chunks_tasked: 0
     chunks_complete: 0
     current_chunk: "API-AUTH-001"
-    tracking_file: "/path/to/core-api/docs/_doctrack/CHUNK_TRACKING.md"
+    tracking_file: "/path/to/core-api/docs/.doctrack/CHUNK_TRACKING.md"
     started: "2025-12-06"
     completed: null
 ```
 
-**After /task (first chunk):**
+**After /dt-task (first chunk):**
 ```yaml
 repositories:
   core-api:
@@ -1378,12 +1650,12 @@ repositories:
     chunks_tasked: 1
     chunks_complete: 0
     current_chunk: "API-AUTH-001"
-    tracking_file: "/path/to/core-api/docs/_doctrack/CHUNK_TRACKING.md"
+    tracking_file: "/path/to/core-api/docs/.doctrack/CHUNK_TRACKING.md"
     started: "2025-12-06"
     completed: null
 ```
 
-**After /generate (all chunks tasked):**
+**After /dt-generate (all chunks tasked):**
 ```yaml
 repositories:
   core-api:
@@ -1395,12 +1667,12 @@ repositories:
     chunks_tasked: 12
     chunks_complete: 0
     current_chunk: null
-    tracking_file: "/path/to/core-api/docs/_doctrack/CHUNK_TRACKING.md"
+    tracking_file: "/path/to/core-api/docs/.doctrack/CHUNK_TRACKING.md"
     started: "2025-12-06"
     completed: null
 ```
 
-**After /complete (first chunk):**
+**After /dt-complete (first chunk):**
 ```yaml
 repositories:
   core-api:
@@ -1412,7 +1684,7 @@ repositories:
     chunks_tasked: 12
     chunks_complete: 1
     current_chunk: "API-AUTH-001"
-    tracking_file: "/path/to/core-api/docs/_doctrack/CHUNK_TRACKING.md"
+    tracking_file: "/path/to/core-api/docs/.doctrack/CHUNK_TRACKING.md"
     started: "2025-12-06"
     completed: null
 ```
@@ -1429,7 +1701,7 @@ repositories:
     chunks_tasked: 12
     chunks_complete: 12
     current_chunk: null
-    tracking_file: "/path/to/core-api/docs/_doctrack/CHUNK_TRACKING.md"
+    tracking_file: "/path/to/core-api/docs/.doctrack/CHUNK_TRACKING.md"
     started: "2025-12-06"
     completed: "2025-12-08"
 ```
@@ -1442,7 +1714,7 @@ repositories:
 
 Audience checklists ensure documentation meets the needs of different user groups. Each audience has specific requirements that must be addressed.
 
-### Defined in doctrack.yaml
+### Defined in session.yaml
 
 ```yaml
 audiences:
@@ -1539,9 +1811,9 @@ audiences:
 
 ### Purpose
 
-Standards ensure consistency across all documentation. They are defined in doctrack.yaml and applied throughout the process.
+Standards ensure consistency across all documentation. They are defined in session.yaml and applied throughout the process.
 
-### Defined in doctrack.yaml
+### Defined in session.yaml
 
 ```yaml
 standards:
@@ -1728,7 +2000,7 @@ Completion checks verify standards compliance:
 
 **Setup:**
 ```yaml
-# doctrack.yaml
+# .doctrack/session.yaml
 repositories:
   - name: core-api
     path: /home/user/projects/core-api
@@ -1744,40 +2016,40 @@ repositories:
 
 ```bash
 # Step 0: Initialize
-/init
-# → Creates STATE.yaml, validates core-api path
+/dt-init
+# → Creates .doctrack/state.yaml, validates core-api path
 
 # Step 1: Chunk repository
-/chunk core-api
+/dt-chunk core-api
 # → Scans src/
 # → Creates CHUNK_TRACKING.md with 12 chunks
-# → Updates STATE.yaml
+# → Updates .doctrack/state.yaml
 
 # Step 2: Review first chunk
-/review API-AUTH-001
+/dt-review API-AUTH-001
 # → Reads auth source files
 # → Identifies doc needs
 # → Displays review results
 
 # Step 3: Create tasks for first chunk
-/task API-AUTH-001
+/dt-task API-AUTH-001
 # → Creates API-AUTH-001-task.md
 # → Includes grind YAML
-# → Updates STATE.yaml
+# → Updates .doctrack/state.yaml
 
 # Repeat steps 2-3 for all chunks...
-/review API-USERS-002
-/task API-USERS-002
+/dt-review API-USERS-002
+/dt-task API-USERS-002
 # ... (10 more chunks)
 
 # Step 4: Generate tasks file
-/generate core-api
+/dt-generate core-api
 # → Compiles all task files
-# → Creates core-api-tasks.yaml
-# → Updates STATE.yaml
+# → Creates .doctrack/core-api-tasks.yaml
+# → Updates .doctrack/state.yaml
 
 # Step 5: Execute tasks
-grind batch core-api-tasks.yaml
+grind batch .doctrack/core-api-tasks.yaml
 # → Creates all documentation
 # → Adds docstrings
 # → Writes guides and examples
@@ -1786,17 +2058,17 @@ grind batch core-api-tasks.yaml
 # (Manual review of generated docs)
 
 # Step 7: Mark chunks complete
-/complete API-AUTH-001
+/dt-complete API-AUTH-001
 # → Verifies docs created
 # → Updates CHUNK_TRACKING.md
-# → Updates STATE.yaml
+# → Updates .doctrack/state.yaml
 
 # Repeat for all chunks...
-/complete API-USERS-002
+/dt-complete API-USERS-002
 # ... (10 more chunks)
 
 # Check final status
-/status
+/dt-status
 # → Shows core-api: complete
 ```
 
@@ -1806,7 +2078,7 @@ grind batch core-api-tasks.yaml
 
 **Setup:**
 ```yaml
-# doctrack.yaml
+# .doctrack/session.yaml
 repositories:
   - name: core-api
     priority: high
@@ -1823,37 +2095,37 @@ repositories:
 
 ```bash
 # Initialize
-/init
+/dt-init
 
-# Use /continue to guide workflow
-/continue
-# → Suggests: /chunk core-api (highest priority)
+# Use /dt-continue to guide workflow
+/dt-continue
+# → Suggests: /dt-chunk core-api (highest priority)
 
-/chunk core-api
-/continue
-# → Suggests: /review API-AUTH-001
+/dt-chunk core-api
+/dt-continue
+# → Suggests: /dt-review API-AUTH-001
 
-/review API-AUTH-001
-/task API-AUTH-001
+/dt-review API-AUTH-001
+/dt-task API-AUTH-001
 
 # ... complete all chunks for core-api
 
-/complete API-AUTH-001
+/dt-complete API-AUTH-001
 # ... complete all chunks
 
-/continue
-# → Suggests: /chunk automation (next priority)
+/dt-continue
+# → Suggests: /dt-chunk automation (next priority)
 
-/chunk automation
+/dt-chunk automation
 # ... repeat process for automation
 
-/continue
-# → Suggests: /chunk config-schemas (lowest priority)
+/dt-continue
+# → Suggests: /dt-chunk config-schemas (lowest priority)
 
-/chunk config-schemas
+/dt-chunk config-schemas
 # ... repeat process for config-schemas
 
-/status
+/dt-status
 # → All repositories complete!
 ```
 
@@ -1863,24 +2135,24 @@ repositories:
 
 ```bash
 # Check where you left off
-/status
+/dt-status
 # Shows:
 # core-api: in_progress (step 3, 6/12 chunks tasked)
 # automation: pending
 # config-schemas: pending
 
 # Continue from where you stopped
-/continue
-# → Suggests: /task API-DB-007 (next untasked chunk)
+/dt-continue
+# → Suggests: /dt-task API-DB-007 (next untasked chunk)
 
-/task API-DB-007
-/continue
-# → Suggests: /task API-CONFIG-008
+/dt-task API-DB-007
+/dt-continue
+# → Suggests: /dt-task API-CONFIG-008
 
 # ... continue until all chunks tasked
 
-/generate core-api
-grind batch core-api-tasks.yaml
+/dt-generate core-api
+grind batch .doctrack/core-api-tasks.yaml
 
 # ... complete the process
 ```
@@ -1895,18 +2167,18 @@ grind batch core-api-tasks.yaml
 
 # Option 1: Fix task specs and re-run specific tasks
 # Edit the task file to fix specifications
-vim repos/core-api/docs/_doctrack/chunks/API-AUTH-001-task.md
+vim repos/core-api/docs/.doctrack/chunks/API-AUTH-001-task.md
 
 # Re-generate and re-run
-/generate core-api
-grind batch core-api-tasks.yaml
+/dt-generate core-api
+grind batch .doctrack/core-api-tasks.yaml
 
 # Option 2: Manual fixes
 # Edit the generated docs directly
 vim repos/core-api/docs/guides/authentication.md
 
 # Then verify
-/complete API-AUTH-001
+/dt-complete API-AUTH-001
 ```
 
 ---
@@ -1918,7 +2190,7 @@ Doctrack provides a systematic, repeatable process for creating documentation fr
 1. **Source code is truth** - Always document what the code does, not what old docs say
 2. **Review, don't audit** - Identify what needs documentation, don't compare to existing docs
 3. **Systematic chunking** - Break large repos into manageable pieces
-4. **Track everything** - STATE.yaml maintains progress across sessions
+4. **Track everything** - state.yaml maintains progress across sessions
 5. **Automate execution** - Use grind to execute documentation tasks
 6. **Verify thoroughly** - Human review and automated checks ensure quality
 

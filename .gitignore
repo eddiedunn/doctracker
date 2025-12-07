@@ -1,5 +1,10 @@
-STATE.yaml
-*-tasks.yaml
-__pycache__/
+# Doctrack state files (regeneratable)
+.doctrack/state.yaml
+.doctrack/repos/*.yaml
+
+# Note: .doctrack/session.yaml is NOT ignored
+# It contains project configuration and can be committed
+*tasks.yaml
 *.pyc
+__pycache__/
 .DS_Store

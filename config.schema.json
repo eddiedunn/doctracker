@@ -1,129 +1,156 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://doctrack.example.com/config.schema.json",
-  "title": "DocTrack Configuration",
-  "description": "Schema for doctrack configuration file",
+  "$id": "https://doctrack.example.com/session.schema.json",
+  "title": "DocTrack Session Configuration",
+  "description": "Schema for doctrack session configuration",
   "type": "object",
-  "required": ["version", "project", "repositories", "audiences"],
+  "required": ["version", "type", "project", "repositories", "audiences", "standards"],
   "properties": {
     "version": {
       "type": "integer",
-      "description": "Configuration schema version",
       "const": 1
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["single", "hub"],
+      "description": "Session type: single repo or hub aggregation"
     },
     "project": {
       "type": "object",
-      "description": "Project-level configuration",
-      "required": ["name", "hub_path"],
+      "required": ["name"],
       "properties": {
         "name": {
-          "type": "string",
-          "description": "Project name"
+          "type": "string"
         },
         "description": {
-          "type": "string",
-          "description": "Project description"
+          "type": "string"
         },
-        "hub_path": {
+        "output_path": {
           "type": "string",
-          "description": "Path where aggregated documentation lives"
+          "default": "./site"
+        },
+        "mkdocs": {
+          "type": "boolean",
+          "default": true
         }
       }
     },
     "repositories": {
       "type": "array",
-      "description": "List of repositories to track",
       "minItems": 1,
       "items": {
-        "type": "object",
-        "required": ["name", "path", "content_type", "prefix"],
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "Repository name"
-          },
-          "path": {
-            "type": "string",
-            "description": "Absolute path to repository"
-          },
-          "content_type": {
-            "type": "string",
-            "description": "Type of content in the repository",
-            "enum": ["python", "ansible", "json-schema", "yaml-config", "mixed"]
-          },
-          "priority": {
-            "type": "string",
-            "description": "Documentation priority level",
-            "enum": ["high", "medium", "low"],
-            "default": "medium"
-          },
-          "prefix": {
-            "type": "string",
-            "description": "Prefix for chunk IDs (e.g., REPO for REPO-AREA-001)",
-            "pattern": "^[A-Z][A-Z0-9]*$"
-          },
-          "source_dirs": {
-            "type": "array",
-            "description": "Directories containing source code",
-            "items": {
-              "type": "string"
-            },
-            "default": []
-          },
-          "doc_dir": {
-            "type": "string",
-            "description": "Directory containing documentation",
-            "default": "docs/"
-          }
-        }
+        "$ref": "#/definitions/repository"
       }
     },
     "audiences": {
       "type": "array",
-      "description": "Target audiences for documentation",
       "minItems": 1,
       "items": {
-        "type": "object",
-        "required": ["name", "description", "checklist"],
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "Audience identifier"
-          },
-          "description": {
-            "type": "string",
-            "description": "Audience description"
-          },
-          "checklist": {
-            "type": "array",
-            "description": "Documentation checklist items for this audience",
-            "items": {
-              "type": "string"
-            },
-            "minItems": 1
-          }
-        }
+        "$ref": "#/definitions/audience"
       }
     },
     "standards": {
       "type": "object",
-      "description": "Documentation standards and conventions",
       "properties": {
         "docstring_style": {
           "type": "string",
-          "description": "Docstring format standard",
           "enum": ["numpy", "google", "sphinx"],
           "default": "numpy"
         },
         "diagram_format": {
           "type": "string",
-          "description": "Diagram markup format",
           "default": "mermaid"
         },
         "require_examples": {
           "type": "boolean",
-          "description": "Whether examples are required in documentation",
           "default": true
+        }
+      }
+    },
+    "hub": {
+      "type": "object",
+      "description": "Hub-specific configuration (only for type: hub)",
+      "properties": {
+        "navigation_style": {
+          "type": "string",
+          "enum": ["audience-journeys", "component-first", "hybrid"],
+          "default": "audience-journeys"
+        },
+        "sync_direction": {
+          "type": "string",
+          "enum": ["pull"],
+          "default": "pull"
+        },
+        "cross_cutting_sections": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "repository": {
+      "type": "object",
+      "required": ["name", "path", "content_type", "prefix"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string",
+          "description": "Absolute or relative path to repository"
+        },
+        "content_type": {
+          "type": "string",
+          "enum": ["python", "ansible", "json-schema", "yaml-config", "mixed"]
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["high", "medium", "low"],
+          "default": "medium"
+        },
+        "prefix": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9]*$"
+        },
+        "source_dirs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "doc_dir": {
+          "type": "string",
+          "default": "docs/"
+        }
+      }
+    },
+    "audience": {
+      "type": "object",
+      "required": ["id", "name", "checklist"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "checklist": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
         }
       }
     }
